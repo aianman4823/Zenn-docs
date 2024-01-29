@@ -1,6 +1,6 @@
 ---
 title: "Bigqueryで始める地理空間データ処理"
-emoji: "🎉"
+emoji: "🗺"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["Bigquery", "Spatial Data", "GCP"]
 published: false
@@ -10,7 +10,7 @@ published: false
 
 # はじめに
 ## 目的
-- Bigqueryで基本的な地理空間データを行えるということを知りましたので、どのようなことができるのか検証し、利用ケースを考える
+- Bigqueryで基本的な地理空間データを行えるということを知りましたので、どのようなことができるのか検証し、利用ケースを考えていきたいと思います。
 
 
 ## 前提事項
