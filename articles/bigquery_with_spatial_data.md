@@ -3,10 +3,15 @@ title: "Bigqueryで始める地理空間データ処理"
 emoji: "🗺"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["Bigquery", "Spatial Data", "GCP"]
-published: false
+published: true
 ---
 
 # TL;DR
+- Bigqueryを使用して地理空間データを処理する方法についての紹介
+- Bigqueryでできることやできないこと、地理空間データの概念、GISソフトウェアの利用方法などについての説明
+- 公式のチュートリアルを通じて、Bigqueryを使用して地理空間データを処理し、可視化する方法の紹介
+- Bigqueryを利用することで、クラウドのパワーを活用しながら地理空間データの分析や可視化が可能となるのではと期待している
+
 
 # はじめに
 ## 目的
@@ -16,8 +21,8 @@ published: false
 ## 前提事項
 - 有料契約をしているGCPプロジェクトがある
 - BigQueryにアクセスできる権限がある
+- Bigquery Geo Vizの認証が完了している
 - 地理空間データについて基本的な理解がある
-- GCPのBigQuery Geo Vizツールを使用するための基本的な知識がある
 
 
 ## 対象読者
@@ -34,7 +39,7 @@ published: false
 
 代表的な地理空間データには、GPS（全地球測位システム）や空中写真データ、人工衛星等による観測データ、道路や河川などの台帳データ、人口や農業などの統計データなどがあります。
 
-これらの地理空間データを実際分析するときには、 **『Geographic Information System（GIS）』**という分析用のソフトウェアを一般的に利用します。
+これらの地理空間データを実際分析するときには、**Geographic** **Information** **System** **(GIS)** という分析用のソフトウェアを一般的に利用します。
 
 よく利用されるのが[QGIS](https://www.qgis.org/ja/site/about/index.html)や[ArcGIS](https://resources.arcgis.com/ja/help/getting-started/articles/026n00000014000000.htm)といった無料のものや有料のものが利用されます。
 
@@ -42,7 +47,7 @@ published: false
 
 具体的なイメージとしては下記のようなものになります。
 
-![image](/images/001026409.gif)
+![image](/images/bigquery_with_spatial_data/001026409.gif)
 *[国土交通省 地理空間情報ページより](https://www.mlit.go.jp/tochi_fudousan_kensetsugyo/chirikukannjoho/tochi_fudousan_kensetsugyo_tk1_000041.html)*
 
 
@@ -78,10 +83,116 @@ published: false
 では次に実際にBigqueryでどのように地理空間データを扱うのか公式のチュートリアルを再現していきたいと思います。
 
 # 地理空間データの処理・可視化（チュートリアル編）
+今回は[こちら](https://cloud.google.com/bigquery/docs/geospatial-get-started
+)のGoogle Cloud公式ドキュメントのチュートリアルに沿って地理空間分析を行っていきたいと思います。
 
+## 利用データ
+利用するデータは、Bigquery一般公開データセットに含まれる、NYCシティバイクの移動に関するデータセットである**citibike_stations**というテーブルを利用します。
+
+biguqery-public-dataというプロジェクトの中の、new_york_citibikeというデータセットの中にあります。
+
+![image](/images/bigquery_with_spatial_data/bigquery_console.png)
+*一般公開データセットであるcitibike_stationsテーブル*
+
+今回このテーブルのうち、
+- longitude: ステーションの経度情報。-73.993934のように10進数表記で格納されている。
+- latitude: ステーションの緯度情報。40.751551のように10進数表記で格納されている。
+- num_bikes_available: レンタル可能な自転車の数情報。
+の3つを利用し、利用可能な自転車の数を基準にステーションを可視化していきます。
+
+また、今回緯度軽度の情報が10進数表記で表されていることから、特に変換処理などは必要ないが、よくあるケースで度分秒形式で緯度経度が格納されている場合は、10進数表記に変換する処理が必要となります。（今回はいらない）
+
+では、次にBigqueryコンソールからクエリしましょう
+
+## クエリ
+今回、チュートリアルでは30台を超える自転車が利用可能な自転車ステーションのクエリを行います。
+
+まずはBigqueryコンソール画面を開きます。
+下記画像の赤枠のプラスボタンを押し、無題のページを作成します。
+
+![image](/images/bigquery_with_spatial_data/bigquery_console1.png)
+*Bigqueryコンソールでクエリ入力ができる状態*
+
+
+上記画像のようになったのち、下記コードを上記ページにコピー&ペーストします。
+
+```SQL
+SELECT
+  ST_GeogPoint(longitude, latitude)  AS WKT,
+  num_bikes_available
+FROM
+  `bigquery-public-data.new_york.citibike_stations`
+WHERE num_bikes_available > 30
+```
+
+このクエリのポイントは**ST_GeogPoint**関数で、この関数により、経度と緯度を引数に、**GEOGRAPHY型**呼ばれる形式に変換しています。
+この変換ではGEOGRAPHY型のうち、**ポイント**（Point）と呼ばれるものに変換しています。
+
+上記のような地理空間データに対して処理を行う関数を**地理関数** **(Geography function)** と呼びます。
+[こちらのドキュメント](https://cloud.google.com/bigquery/docs/reference/standard-sql/geography_functions)にBigqueryで利用可能な地理関数の一覧がまとまっています。
+
+GEOGRAPHY型やポイントの説明は今回割愛しますが、気になる方は[こちら](http://cse.naro.affrc.go.jp/yellow/pgisman/3.0.0/using_postgis_dbmanagement.html#:~:text=%E3%82%B8%E3%82%AA%E3%82%B0%E3%83%A9%E3%83%95%E3%82%A3%E5%9E%8B%E3%81%AF%E3%80%81%E3%80%8C%E5%9C%B0%E7%90%86,%E3%81%95%E3%82%8C%E3%82%8B%E7%90%83%E9%9D%A2%E5%BA%A7%E6%A8%99%E3%81%A7%E3%81%99%E3%80%82)の資料を参考してください。
+
+
+先ほどのクエリをBigqueryコンソールから実行した結果が下記画像になります。
+
+![image](/images/bigquery_with_spatial_data/bigquery_console2.png)
+*クエリを実行したBigquery画面*
+
+こちらの画像のようにST_GeogPoint関数によって緯度経度の情報がPOINTという情報になっていることがわかると思います。
+
+この形式になれば地図上にマッピングするようなレイヤーとして扱えます。
+
+次にこちらのクエリを利用してマッピングしてみましょう
+
+## マッピング
+利用するツールは**Bigquery** **Geo** **Viz**というツールになります。
+
+利用するには認証を行い、Bigqueryへのアクセス権を付与する必要があります。
+
+また、このツールを開いたのち、
+1. 利用しているGCPプロジェクトの選択
+2. 実行したいクエリのコピー&ペースト
+を行います。
+
+行った後の画面が下記になります。
+
+![image](/images/bigquery_with_spatial_data/bigquery_geo_viz.png)
+*Bigquery geo vizに入力した後の画面*
+
+このような状態になった後、RUNボタンを押すと下記のようにポイントが表示されます。
+
+![image](/images/bigquery_with_spatial_data/bigquery_geo_viz1.png)
+*Bigquery geo vizでRUNした後の画像*
+
+このように赤い点が表示されている箇所が利用可能な自転車が30台以上あるステーションになります。
+
+また、下記画像のStyleという箇所からポイントの色や大きさをデータによって変えたりすることができます。
+今回は色はそのままに、ポイントの大きさを利用可能な自転車台数によって変えるようにしたいと思います。
+
+![image](/images/bigquery_with_spatial_data/bigquery_geo_viz2.png)
+*Bigquery geo vizのStyle*
+
+利用するのはStyleの中の**circleRadius**という要素です。
+手順としては
+1. **Data-driven**をONにする
+2. Functionに**linear**を選択
+3. Fieldに**num_bikes_available**を選択
+4. Domainの左枠に31、右枠に101を入力（maxというのが右枠の右に出るのでその値を参考に入れる数値を決める）
+5. Rangeの左枠に20、右枠に100を入力
+で、上記を実施したのち、**Apply** **Style**ボタンをクリックします。
+
+
+実行した結果が下記の画像になります。
+
+![image](/images/bigquery_with_spatial_data/bigquery_geo_viz3.png)
+*Bigquery geo vizでStyleをApplyした後の結果*
+
+このように、データに応じて色や円の大きさなど変えることができます。
 
 # まとめ
-- Bigqueryでも地理空間データを扱える！
-- 2点間の距離計算などめちゃくちゃ高速
-- 測地系を変えられないなどあるため、他のGISツールと組み合わせての利用が良さそう
-- BigQuery Geo Vizはクエリだけで可視化できて便利
+- Bigqueryでも基本的な地理空間データを扱うことはできる。
+- 測地系を変えられないなどの制約があるため、他のGISツールと組み合わせて利用するなどの工夫が必要そう。
+- BigQuery Geo Vizを使用すると、クエリだけで地理データを可視化することができて便利。
+
+次回は、少し応用で日本の都道府県別、地震の発生回数をBigqueryを利用して分析したいと思います！
